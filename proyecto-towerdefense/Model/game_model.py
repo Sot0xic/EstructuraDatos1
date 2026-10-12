@@ -1,11 +1,12 @@
 """
-Modelo base del Tower Defense (Semana 1).
+Modelo base del Tower Defense (Semanas 1 y 2).
 
 Relaciona las estructuras de datos con el funcionamiento del juego:
 
     Queue          -> enemigos esperando para entrar al mapa.
     DoublyLinkedList -> enemigos activos dentro del mapa.
     Stack          -> historial de acciones (base Undo/Redo).
+    Tower          -> torres que atacan a los enemigos en su alcance.
 
 Flujo conceptual:
 
@@ -23,8 +24,8 @@ class Enemy:
     def __init__(self, enemy_id, name="Enemy", hp=100, speed=1.0, progress=0.0):
         self.enemy_id = enemy_id
         self.name = name
-        self.hp = hp
-        self.max_hp = hp
+        self.max_hp = max(0, hp)
+        self.hp = self.max_hp
         self.speed = speed
         self.progress = progress
 
@@ -33,8 +34,19 @@ class Enemy:
         """True mientras tenga puntos de vida."""
         return self.hp > 0
 
+    @property
+    def is_defeated(self):
+        """True cuando la vida llego a cero o menos."""
+        return self.hp <= 0
+
     def take_damage(self, damage):
-        """Aplica danio y devuelve los puntos de vida restantes. O(1)."""
+        """Aplica danio y devuelve los puntos de vida restantes. O(1).
+
+        La vida nunca baja de cero ni supera la vida maxima; un valor
+        de danio no positivo no modifica al enemigo.
+        """
+        if damage <= 0:
+            return self.hp
         self.hp = max(0, self.hp - damage)
         return self.hp
 
@@ -49,14 +61,56 @@ class Enemy:
         )
 
 
+class Tower:
+    """Torre basica del juego (Semana 2).
+
+    Cada torre tiene identificador, nombre, daño por ataque, alcance
+    y una posicion sobre el recorrido (misma dimension que Enemy.progress).
+
+    El alcance es la distancia maxima, en unidades de progreso, a la que
+    la torre puede alcanzar a un enemigo.
+    """
+
+    def __init__(self, tower_id, name="Tower", damage=25, range=3.0, position=0.0):
+        self.tower_id = tower_id
+        self.name = name
+        self.damage = damage
+        self.range = range
+        self.position = position
+
+    def is_in_range(self, enemy):
+        """True si el enemigo esta dentro del alcance. O(1)."""
+        return abs(enemy.progress - self.position) <= self.range
+
+    def attack(self, model, enemy):
+        """Ataca al enemigo usando el combate del modelo. O(1) + O(n).
+
+        Si el enemigo esta fuera del alcance no aplica danio. Si el
+        enemigo ya fue eliminado, model.tower_attack tampoco lo modifica.
+        """
+        if not self.is_in_range(enemy):
+            return False, enemy.hp
+        return model.tower_attack(enemy, self.damage)
+
+    def __repr__(self):
+        return (
+            f"Tower(id={self.tower_id}, {self.name}, "
+            f"damage={self.damage}, range={self.range}, "
+            f"position={self.position})"
+        )
+
+
 class GameModel:
     """Modelo base: administra enemigos con las estructuras de la Semana 1."""
 
-    def __init__(self):
+    def __init__(self, path_length=40.0):
         self.pending_enemies = Queue()      # enemigos en espera (oleada)
         self.active_enemies = DoublyLinkedList()  # enemigos en el mapa
         self.action_history = Stack()       # historial (base Undo/Redo)
+        self.towers = []                    # torres colocadas en el mapa
+        self.path_length = path_length      # largo total del camino
         self._next_enemy_id = 1
+        self._next_tower_id = 1
 
     # ------------------------------------------------------------------
     # Oleadas (Queue)
@@ -119,6 +173,52 @@ class GameModel:
         removed = self.active_enemies.remove(enemy)
         if removed:
             self.action_history.push(("remove", enemy))
+        return removed
+
+    # ------------------------------------------------------------------
+    # Torres (Semana 2)
+    # ------------------------------------------------------------------
+    def create_tower(self, name="Tower", damage=25, range=3.0, position=0.0):
+        """Crea una torre y la registra en el mapa. O(1)."""
+        tower = Tower(
+            self._next_tower_id,
+            name=name,
+            damage=damage,
+            range=range,
+            position=position,
+        )
+        self._next_tower_id += 1
+        self.towers.append(tower)
+        self.action_history.push(("tower", tower))
+        return tower
+
+    # ------------------------------------------------------------------
+    # Movimiento (Dia 2 - Semana 2)
+    # ------------------------------------------------------------------
+    def advance_enemies(self, distance):
+        """Avanza a todos los enemigos activos. O(n)."""
+        enemies = self.active_enemies.to_list()
+
+        for enemy in enemies:
+            enemy.advance(distance)
+
+    def remove_escaped(self):
+        """Retira a los enemigos que llegaron al final del camino. O(n).
+
+        Recorre la lista de activos y elimina con remove_node() en O(1)
+        cada nodo cuyo enemigo alcanzo o supero path_length.
+        Devuelve la lista de enemigos retirados.
+        """
+        removed = []
+        node = self.active_enemies.head
+        while node is not None:
+            next_node = node.next
+            enemy = node.data
+            if enemy.progress >= self.path_length:
+                self.active_enemies.remove_node(node)
+                self.action_history.push(("escape", enemy))
+                removed.append(enemy)
+            node = next_node
         return removed
 
     # ------------------------------------------------------------------

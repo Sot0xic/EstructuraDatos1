@@ -138,6 +138,92 @@ class TestGameModel(unittest.TestCase):
         self.assertEqual(len(state["active"]), 1)
         self.assertEqual(len(state["history"]), 3)
 
+    def test_advance_enemies_updates_progress(self):
+        model = GameModel()
+        enemy = model.create_enemy(
+            name="Goblin",
+            hp=60,
+            speed=2.0,
+        )
+
+        model.add_to_wave(enemy)
+        model.spawn_next()
+        model.advance_enemies(3)
+
+        self.assertEqual(enemy.progress, 6.0)
+
+    def test_advance_enemies_respects_speed(self):
+        model = GameModel()
+
+        slow_enemy = model.create_enemy(
+            name="Goblin",
+            speed=1.0,
+        )
+        fast_enemy = model.create_enemy(
+            name="Orco",
+            speed=3.0,
+        )
+
+        model.add_to_wave(slow_enemy)
+        model.add_to_wave(fast_enemy)
+        model.spawn_all()
+        model.advance_enemies(2)
+
+        self.assertEqual(slow_enemy.progress, 2.0)
+        self.assertEqual(fast_enemy.progress, 6.0)
+
+    def test_pending_enemies_do_not_advance(self):
+        model = GameModel()
+        enemy = model.create_enemy(
+            name="Dragon",
+            speed=2.0,
+        )
+
+        model.add_to_wave(enemy)
+        model.advance_enemies(5)
+
+        self.assertEqual(enemy.progress, 0.0)
+        self.assertEqual(model.pending_count, 1)
+        self.assertEqual(model.active_count, 0)
+
+
+class TestEnemy(unittest.TestCase):
+    """Pruebas de la entidad Enemy (Dia 1 - Semana 2)."""
+
+    def test_starts_with_max_health(self):
+        enemy = Enemy(1, name="Goblin", hp=60)
+        self.assertEqual(enemy.hp, enemy.max_hp)
+        self.assertEqual(enemy.hp, 60)
+        self.assertTrue(enemy.is_alive)
+        self.assertFalse(enemy.is_defeated)
+
+    def test_damage_reduces_health_and_never_goes_below_zero(self):
+        enemy = Enemy(2, hp=50)
+        self.assertEqual(enemy.take_damage(20), 30)
+        self.assertEqual(enemy.take_damage(1000), 0)
+        self.assertEqual(enemy.hp, 0)
+        self.assertFalse(enemy.is_alive)
+        self.assertTrue(enemy.is_defeated)
+
+    def test_health_never_exceeds_max(self):
+        enemy = Enemy(3, hp=40)
+        enemy.take_damage(-100)
+        self.assertEqual(enemy.hp, enemy.max_hp)
+        self.assertEqual(enemy.hp, 40)
+
+    def test_negative_initial_health_is_clamped(self):
+        enemy = Enemy(4, hp=-30)
+        self.assertEqual(enemy.max_hp, 0)
+        self.assertEqual(enemy.hp, 0)
+        self.assertTrue(enemy.is_defeated)
+
+    def test_progress_represents_position(self):
+        enemy = Enemy(5, speed=2.0, progress=10.0)
+        enemy.advance(5)
+        self.assertEqual(enemy.progress, 20.0)
+        self.assertEqual(enemy.speed, 2.0)
+        self.assertIn("progress", repr(enemy))
+
 
 if __name__ == "__main__":
     unittest.main()

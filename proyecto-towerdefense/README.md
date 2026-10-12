@@ -393,3 +393,91 @@ La selección inicial de estructuras se limita a:
 - **Stack:** base para historial y posible Undo/Redo.
 
 El objetivo de esta etapa no es terminar el juego, sino demostrar que las estructuras están correctamente implementadas, que tienen una aplicación concreta y que pueden ser integradas posteriormente al sistema completo.
+
+## Semana 2: Integración gráfica y mecánicas básicas
+
+### Objetivo de la semana
+
+Integrar el modelo de enemigos con la interfaz gráfica del juego, implementar el movimiento de los enemigos y permitir que las torretas ataquen automáticamente. También se busca establecer un comportamiento consistente para seleccionar los objetivos de ataque.
+
+### Plan de trabajo por días
+
+#### Día 1: Modelo general de enemigos
+
+Se implementó una clase general `Enemy` para representar a los diferentes enemigos del juego, evitando crear una clase independiente para cada tipo de enemigo.
+
+La clase contempla los siguientes atributos y comportamientos:
+
+- Identificador único del enemigo.
+- Nombre del enemigo.
+- Puntos de vida (`hp`).
+- Velocidad de movimiento (`speed`).
+- Progreso de desplazamiento (`progress`).
+- Estado del enemigo: vivo o derrotado.
+- Método `take_damage(damage)` para recibir daño y actualizar sus puntos de vida.
+
+Se añadieron pruebas para comprobar el funcionamiento del modelo de enemigos.
+
+#### Día 2: Integración del juego con la interfaz gráfica
+
+Se avanzó en la integración del modelo y el controlador con la vista del juego, permitiendo representar gráficamente los elementos principales del Tower Defense.
+
+Se mantuvo la organización del proyecto mediante el patrón MVC:
+
+- **Model:** administra los datos y el estado de los enemigos.
+- **Controller:** coordina la lógica del juego y el comportamiento de las torretas.
+- **View:** muestra los elementos del juego y sus cambios en pantalla.
+
+#### Día 3: Representación y movimiento de los enemigos
+
+Se incorporaron los enemigos a la representación gráfica del juego y se implementó su desplazamiento en línea recta.
+
+Los enemigos avanzan mientras se desarrolla la partida, permitiendo observar su progreso y comprobar cómo interactúan con las torretas.
+
+#### Día 4: Ataque automático de las torretas
+
+Se implementó el comportamiento de ataque de las tres torretas presentes en el juego.
+
+Las torretas atacan a los enemigos y reducen sus puntos de vida. De esta manera, el sistema conecta el comportamiento ofensivo de las torretas con el estado de los enemigos definido en el modelo.
+
+También se corrigió un problema de selección de objetivos: anteriormente, una torreta podía afectar a varios enemigos al mismo tiempo. Después del ajuste, cada torreta se concentra en un solo enemigo por ataque y prioriza al enemigo que tiene menos puntos de vida en ese momento.
+
+#### Día 5: Integración y comprobación del funcionamiento
+
+Se integraron los componentes desarrollados durante la semana y se realizaron ajustes para comprobar el comportamiento general de la partida.
+
+Se verificó visualmente que:
+
+- Los enemigos aparecen y avanzan por el escenario.
+- Las tres torretas pueden atacar a los enemigos.
+- Los puntos de vida de los enemigos disminuyen al recibir daño.
+- Cada torreta selecciona un único objetivo por ataque.
+- La selección del objetivo prioriza al enemigo con menor cantidad de vida.
+
+### Resultado de la Semana 2
+
+Al finalizar la segunda semana, el proyecto cuenta con una versión gráfica funcional de las mecánicas básicas del Tower Defense. Los enemigos pueden desplazarse por el escenario y las tres torretas los atacan automáticamente, reduciendo sus puntos de vida.
+
+Además, se mejoró la selección de objetivos para evitar que una torreta ataque a varios enemigos simultáneamente y para priorizar al enemigo con menos vida.
+
+Esta etapa permite pasar de un modelo centrado en las estructuras de datos a una versión interactiva del juego, sobre la cual se podrán incorporar nuevas mecánicas en las siguientes semanas.
+
+### Alcance de la segunda presentación
+
+Para la presentación de la Semana 2, se consideran los siguientes elementos:
+
+- Modelo general de enemigos implementado.
+- Integración del modelo con la interfaz gráfica.
+- Tres torretas representadas en el escenario.
+- Movimiento de los enemigos en línea recta.
+- Ataque automático de las torretas.
+- Reducción de los puntos de vida de los enemigos.
+- Selección de un objetivo por ataque y priorización del enemigo con menos vida.
+
+### Evolución del proyecto
+
+La Semana 1 se centró en la implementación y comprobación de las estructuras de datos necesarias para organizar los elementos del juego.
+
+Durante la Semana 2, estas bases se integraron con la representación gráfica y las mecánicas de movimiento y ataque.
+
+Las siguientes etapas podrán centrarse en ampliar la lógica de la partida, incorporar recorridos más elaborados, gestionar oleadas de enemigos y definir las condiciones de victoria y derrota, siempre utilizando estructuras de datos cuando aporten una utilidad real al funcionamiento del juego.

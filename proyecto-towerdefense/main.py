@@ -1,13 +1,13 @@
 """
-Punto de entrada del proyecto Tower Defense - Semana 1.
+Punto de entrada del Tower Defense (Semana 2).
 
-Demuestra el flujo conceptual del juego con las estructuras de datos:
+Abre la ventana de Pygame, crea el controlador, carga una oleada
+inicial con torres y ejecuta el ciclo del juego:
 
-    Oleada -> QUEUE (en espera) -> dequeue() -> LISTA DOBLE (activos)
-                                              -> torre elimina enemigo
-                                              -> remove del nodo
+    eventos -> actualizacion del modelo -> dibujo de la vista
 
-    STACK -> historial de acciones (base Undo/Redo)
+La demostracion de las estructuras de datos de la Semana 1 se
+conserva en demo_estructuras.py.
 
 Ejecutar desde la raiz del proyecto:
 
@@ -15,41 +15,45 @@ Ejecutar desde la raiz del proyecto:
 """
 
 from Controller.game_controller import GameController
+from View.game_window import GameWindow
 
 
-def main():
-    controller = GameController()
+def create_controller():
+    """Crea el controlador con una oleada y varias torres. O(k)."""
+    controller = GameController(view=None, spawn_interval=1.0)
 
-    print("\n>>> PASO 1: Llega una oleada de enemigos (se encolan en la QUEUE)")
     controller.start_wave(
         [
-            {"name": "Goblin", "hp": 60, "speed": 1.2},
-            {"name": "Orco", "hp": 120, "speed": 0.8},
-            {"name": "Duende", "hp": 40, "speed": 1.5},
-            {"name": "Dragon", "hp": 200, "speed": 0.6},
+            {"name": "Goblin", "hp": 60, "speed": 3.0},
+            {"name": "Duende", "hp": 40, "speed": 4.0},
+            {"name": "Orco", "hp": 120, "speed": 2.5},
+            {"name": "Goblin", "hp": 60, "speed": 3.0},
+            {"name": "Dragon", "hp": 200, "speed": 2.0},
+            {"name": "Duende", "hp": 40, "speed": 4.0},
+            {"name": "Orco", "hp": 120, "speed": 2.5},
+            {"name": "Dragon", "hp": 200, "speed": 2.0},
         ]
     )
 
-    print("\n>>> PASO 2: Los enemigos entran al mapa (dequeue -> lista doble)")
-    controller.spawn_next()
-    controller.spawn_next()
+    controller.place_tower(name="Torre 1", damage=0.44, range=4.0, position=6.0)
+    controller.place_tower(name="Torre 2", damage=0.52, range=4.0, position=20.0)
+    controller.place_tower(name="Torre 3", damage=0.42, range=4.0, position=34.0)
 
-    print("\n>>> PASO 3: Una torre ataca al segundo enemigo activo")
-    active = controller.model.active_enemies.to_list()
-    target = active[1]
-    killed, remaining = controller.attack(target, damage=120)
-    print(f"    Resultado del ataque -> eliminado: {killed} | vida restante: {remaining}")
+    return controller
 
-    print("\n>>> PASO 4: Los enemigos restantes de la oleada entran al mapa")
-    controller.spawn_all()
 
-    print("\n>>> PASO 5: Historial de acciones (STACK, LIFO)")
-    print(f"    Ultima accion registrada: {controller.model.peek_last_action()}")
-    last = controller.undo()
-    print(f"    undo() recupero: {last}")
+def main():
+    controller = create_controller()
+    window = GameWindow(controller.model)
 
-    print("\n>>> Estado final del modelo")
-    controller.render()
+    running = True
+    while running:
+        dt = window.tick()
+        running = window.process_events()
+        controller.update(dt)
+        window.draw()
+
+    window.close()
 
 
 if __name__ == "__main__":
