@@ -41,10 +41,15 @@ class GameController:
         self.render()
         return spawned
 
-    def place_tower(self, name="Tower", damage=25, range=3.0, position=0.0):
+    def place_tower(
+        self, name="Tower", damage=25, range=3.0, position=0.0,
+        map_x=None, map_y=None, footprint=0.0, attack_interval=1.0,
+    ):
         """Crea una torre y la registra en el mapa. O(1)."""
         tower = self.model.create_tower(
-            name=name, damage=damage, range=range, position=position
+            name=name, damage=damage, range=range, position=position,
+            map_x=map_x, map_y=map_y, footprint=footprint,
+            attack_interval=attack_interval,
         )
         self.render()
         return tower
@@ -60,8 +65,9 @@ class GameController:
 
         1. Hace aparecer enemigos de la cola cada spawn_interval segundos.
         2. Avanza solo a los enemigos activos (los pendientes no avanzan).
-        3. Cada torre ataca a un solo enemigo por actualizacion: el que
-           tiene menos vida dentro de su alcance.
+        3. Cada torre ataca a un solo enemigo, el que tiene menos vida
+           dentro de su alcance, y solo cuando termino su cooldown
+           (attack_interval segundos desde el ataque anterior).
         4. Retira a los enemigos derrotados o que llegaron al final.
         """
         self._spawn_timer += dt
@@ -75,6 +81,9 @@ class GameController:
         self.model.advance_enemies(dt)
 
         for tower in self.model.towers:
+            tower.refresh(dt)
+            if not tower.is_ready:
+                continue
             target = None
             for enemy in self.model.active_enemies.to_list():
                 if not tower.is_in_range(enemy):
@@ -83,6 +92,7 @@ class GameController:
                     target = enemy
             if target is not None:
                 tower.attack(self.model, target)
+                tower.start_cooldown()
 
         self.model.remove_escaped()
 

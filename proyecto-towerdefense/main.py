@@ -1,8 +1,9 @@
 """
-Punto de entrada del Tower Defense (Semana 2).
+Punto de entrada del Tower Defense (Semanas 2 y 3).
 
-Abre la ventana de Pygame, crea el controlador, carga una oleada
-inicial con torres y ejecuta el ciclo del juego:
+Abre la ventana de Pygame, carga el mapa de Tiled, crea el
+controlador, una oleada inicial con torres y ejecuta el ciclo
+del juego:
 
     eventos -> actualizacion del modelo -> dibujo de la vista
 
@@ -14,37 +15,44 @@ Ejecutar desde la raiz del proyecto:
     python main.py
 """
 
+import os
+
 from Controller.game_controller import GameController
+from Model.game_model import GameModel
 from View.game_window import GameWindow
+from View.tiled_map import TiledMap
+
+MAP_PATH = os.path.join("assets", "mapas", "mapa_principal.tmx")
 
 
-def create_controller():
-    """Crea el controlador con una oleada y varias torres. O(k)."""
-    controller = GameController(view=None, spawn_interval=1.0)
+def create_controller(tiled_map):
+    """Crea el controlador con una oleada inicial. O(k)."""
+    model = GameModel(path_length=tiled_map.path_length())
+    controller = GameController(model=model, view=None, spawn_interval=1.0)
 
     controller.start_wave(
         [
-            {"name": "Goblin", "hp": 60, "speed": 3.0},
-            {"name": "Duende", "hp": 40, "speed": 4.0},
-            {"name": "Orco", "hp": 120, "speed": 2.5},
-            {"name": "Goblin", "hp": 60, "speed": 3.0},
-            {"name": "Dragon", "hp": 200, "speed": 2.0},
-            {"name": "Duende", "hp": 40, "speed": 4.0},
-            {"name": "Orco", "hp": 120, "speed": 2.5},
-            {"name": "Dragon", "hp": 200, "speed": 2.0},
+            {"name": "Goblin", "hp": 60, "speed": 90},
+            {"name": "Duende", "hp": 40, "speed": 130},
+            {"name": "Orco", "hp": 120, "speed": 60},
+            {"name": "Goblin", "hp": 60, "speed": 90},
+            {"name": "Dragon", "hp": 200, "speed": 75},
+            {"name": "Duende", "hp": 40, "speed": 130},
+            {"name": "Orco", "hp": 120, "speed": 60},
+            {"name": "Dragon", "hp": 200, "speed": 75},
         ]
     )
-
-    controller.place_tower(name="Torre 1", damage=0.44, range=4.0, position=6.0)
-    controller.place_tower(name="Torre 2", damage=0.52, range=4.0, position=20.0)
-    controller.place_tower(name="Torre 3", damage=0.42, range=4.0, position=34.0)
 
     return controller
 
 
 def main():
-    controller = create_controller()
-    window = GameWindow(controller.model)
+    import pygame
+    pygame.init()
+    pygame.display.set_mode((1280, 720))
+    tiled_map = TiledMap(MAP_PATH)
+    controller = create_controller(tiled_map)
+    window = GameWindow(controller.model, tiled_map)
 
     running = True
     while running:

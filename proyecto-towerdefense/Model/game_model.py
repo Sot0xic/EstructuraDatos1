@@ -67,16 +67,48 @@ class Tower:
     Cada torre tiene identificador, nombre, daño por ataque, alcance
     y una posicion sobre el recorrido (misma dimension que Enemy.progress).
 
+    Ademas almacena su posicion en el mapa (map_x, map_y en pixeles
+    del mapa de Tiled) y su radio de ocupacion (footprint) para la
+    validacion de colocacion.
+
     El alcance es la distancia maxima, en unidades de progreso, a la que
-    la torre puede alcanzar a un enemigo.
+    la torre puede alcanzar a un enemigo. position, range y
+    Enemy.progress usan la misma dimension: con el mapa de Tiled son
+    pixeles del mapa (Enemy.progress avanza en pixeles por segundo).
+
+    attack_interval (en segundos) es el tiempo minimo entre ataques
+    (cooldown); cooldown indica los segundos que faltan para el
+    siguiente disparo.
     """
 
-    def __init__(self, tower_id, name="Tower", damage=25, range=3.0, position=0.0):
+    def __init__(
+        self, tower_id, name="Tower", damage=25, range=3.0, position=0.0,
+        map_x=None, map_y=None, footprint=0.0, attack_interval=1.0,
+    ):
         self.tower_id = tower_id
         self.name = name
         self.damage = damage
         self.range = range
         self.position = position
+        self.map_x = map_x
+        self.map_y = map_y
+        self.footprint = footprint
+        self.attack_interval = max(0.0, attack_interval)
+        self.cooldown = 0.0
+
+    @property
+    def is_ready(self):
+        """True cuando la torre ya puede volver a atacar. O(1)."""
+        return self.cooldown <= 0.0
+
+    def refresh(self, dt):
+        """Descuenta el tiempo transcurrido del cooldown. O(1)."""
+        if dt > 0.0:
+            self.cooldown = max(0.0, self.cooldown - dt)
+
+    def start_cooldown(self):
+        """Reinicia el cooldown tras un ataque. O(1)."""
+        self.cooldown = self.attack_interval
 
     def is_in_range(self, enemy):
         """True si el enemigo esta dentro del alcance. O(1)."""
@@ -178,7 +210,10 @@ class GameModel:
     # ------------------------------------------------------------------
     # Torres (Semana 2)
     # ------------------------------------------------------------------
-    def create_tower(self, name="Tower", damage=25, range=3.0, position=0.0):
+    def create_tower(
+        self, name="Tower", damage=25, range=3.0, position=0.0,
+        map_x=None, map_y=None, footprint=0.0, attack_interval=1.0,
+    ):
         """Crea una torre y la registra en el mapa. O(1)."""
         tower = Tower(
             self._next_tower_id,
@@ -186,11 +221,26 @@ class GameModel:
             damage=damage,
             range=range,
             position=position,
+            map_x=map_x,
+            map_y=map_y,
+            footprint=footprint,
+            attack_interval=attack_interval,
         )
         self._next_tower_id += 1
         self.towers.append(tower)
         self.action_history.push(("tower", tower))
         return tower
+
+    def can_place_tower_at(self, map_x, map_y, footprint, tiled_map):
+        """Comprueba si se puede colocar una torre en (map_x, map_y).
+
+        Usa tiled_map.can_place_tower para validar contra zonas
+        bloqueadas, limites del mapa y otras torres ya colocadas.
+        Devuelve (True, "") si es valida, o (False, motivo).
+        """
+        return tiled_map.can_place_tower(
+            map_x, map_y, footprint, existing_towers=self.towers
+        )
 
     # ------------------------------------------------------------------
     # Movimiento (Dia 2 - Semana 2)
