@@ -122,20 +122,60 @@ class TestManualTower(unittest.TestCase):
 
     def test_full_draw_with_tower_and_enemy(self):
         tower = self._place_tower_near_path(via_draw=True)
-        self._spawn_enemy(hp=100, progress=tower.position)
 
+        # Sin enemigos no hay disparos: el sprite debe cubrir la base.
+        self.window.draw()
+        centro = self.window.map_to_screen(tower.map_x, tower.map_y)
+        # La ventana dibuja los frames PNG de la Semana 4 cuando el
+        # tipo tiene animacion cables; si no, el sprite compuesto.
+        if self.window.animations.has(tower.kind):
+            sprite = self.window.animations.idle(tower.kind)
+            ancla_x, ancla_y = self.window.animations.anchor(tower.kind)
+        else:
+            sprite = self.window.assets.tower(tower.kind)
+            ancla_x, ancla_y = self.window.assets.tower_anchor(tower.kind)
+
+        # Se busca un pixel opaco del sprite cerca del anclaje (base de
+        # la torre) para comparar con lo pintado en pantalla.
+        offset = None
+        for dy in range(-24, 24):
+            for dx in range(-24, 24):
+                sx, sy = ancla_x + dx, ancla_y + dy
+                if not (0 <= sx < sprite.get_width() and 0 <= sy < sprite.get_height()):
+                    continue
+                # Los frames PNG pre-escalados con smoothscale quedan
+                # con alfa casi opaco (253); se busca un pixel solido.
+                if sprite.get_at((sx, sy)).a >= 200:
+                    offset = (dx, dy)
+                    break
+            if offset is not None:
+                break
+        self.assertIsNotNone(offset, "El sprite no tiene base opaca")
+        esperado = sprite.get_at((ancla_x + offset[0], ancla_y + offset[1]))
+        pintado = self.window.screen.get_at(
+            (int(centro[0]) + offset[0], int(centro[1]) + offset[1])
+        )
+        # Los frames PNG casi opacos (alfa 253) se funden un poco con
+        # el mapa al dibujarse: se admite un desvio minimo por canal.
+        for canal in range(4):
+            self.assertLessEqual(
+                abs(pintado[canal] - esperado[canal]),
+                4,
+                f"canal {canal}: pintado={tuple(pintado)} esperado={tuple(esperado)}",
+            )
+
+        # Con enemigo en rango el dibujo completo no falla y genera el
+        # proyectil visual del disparo.
+        self._spawn_enemy(hp=100, progress=tower.position)
         self.controller.update(0.05)
         self.window.draw()
 
-        centro = self.window.map_to_screen(tower.map_x, tower.map_y)
-        self.assertEqual(
-            self.window.screen.get_at((int(centro[0]), int(centro[1])))[:3],
-            GameWindow.TOWER_COLOR,
-        )
         self.assertEqual(
             self.window.screen.get_size(),
             (GameWindow.WIDTH, GameWindow.HEIGHT),
         )
+        self.assertEqual(len(self.window.projectiles), 1)
+        self.assertEqual(self.window.projectiles[0]["kind"], tower.kind)
 
     def test_placed_tower_participates_in_update(self):
         tower = self._place_tower_near_path()

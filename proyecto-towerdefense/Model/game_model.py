@@ -17,6 +17,18 @@ Flujo conceptual:
 
 from Model.structures import DoublyLinkedList, Queue, Stack
 
+# Tipos de torre disponibles (Semana 3 - sprites de torres).
+# Cada entrada define el nombre y las estadisticas base del tipo; el
+# proyectil y los efectos visuales asociados viven en View/tower_assets.
+#   basica : ataque equilibrado, proyectil sencillo
+#   fuego  : ataque rapido, proyectil de roca (catapulta torre_02)
+#   pesada : ataque lento y potente, proyectil de roca
+TOWER_KINDS = {
+    "basica": {"name": "Torre basica", "damage": 15, "attack_interval": 0.6},
+    "fuego": {"name": "Torre de fuego", "damage": 8, "attack_interval": 0.3},
+    "pesada": {"name": "Torre pesada", "damage": 55, "attack_interval": 1.7},
+}
+
 
 class Enemy:
     """Representacion basica de un enemigo del juego."""
@@ -79,11 +91,15 @@ class Tower:
     attack_interval (en segundos) es el tiempo minimo entre ataques
     (cooldown); cooldown indica los segundos que faltan para el
     siguiente disparo.
+
+    kind identifica el tipo de torre ("basica", "fuego" o "pesada")
+    y determina que sprite y proyectil usara la vista.
     """
 
     def __init__(
         self, tower_id, name="Tower", damage=25, range=3.0, position=0.0,
         map_x=None, map_y=None, footprint=0.0, attack_interval=1.0,
+        kind="basica",
     ):
         self.tower_id = tower_id
         self.name = name
@@ -95,6 +111,7 @@ class Tower:
         self.footprint = footprint
         self.attack_interval = max(0.0, attack_interval)
         self.cooldown = 0.0
+        self.kind = kind
 
     @property
     def is_ready(self):
@@ -140,6 +157,8 @@ class GameModel:
         self.active_enemies = DoublyLinkedList()  # enemigos en el mapa
         self.action_history = Stack()       # historial (base Undo/Redo)
         self.towers = []                    # torres colocadas en el mapa
+        self.shots = []                     # eventos de disparo que la
+                                            # vista consume al dibujar
         self.path_length = path_length      # largo total del camino
         self._next_enemy_id = 1
         self._next_tower_id = 1
@@ -211,25 +230,46 @@ class GameModel:
     # Torres (Semana 2)
     # ------------------------------------------------------------------
     def create_tower(
-        self, name="Tower", damage=25, range=3.0, position=0.0,
-        map_x=None, map_y=None, footprint=0.0, attack_interval=1.0,
+        self, kind="basica", name=None, damage=None, range=3.0, position=0.0,
+        map_x=None, map_y=None, footprint=0.0, attack_interval=None,
     ):
-        """Crea una torre y la registra en el mapa. O(1)."""
+        """Crea una torre del tipo indicado y la registra en el mapa. O(1).
+
+        name, damage y attack_interval se toman del registro TOWER_KINDS
+        del tipo salvo que se indiquen explicitamente.
+        """
+        spec = TOWER_KINDS.get(kind, TOWER_KINDS["basica"])
         tower = Tower(
             self._next_tower_id,
-            name=name,
-            damage=damage,
+            name=spec["name"] if name is None else name,
+            damage=spec["damage"] if damage is None else damage,
             range=range,
             position=position,
             map_x=map_x,
             map_y=map_y,
             footprint=footprint,
-            attack_interval=attack_interval,
+            attack_interval=(
+                spec["attack_interval"] if attack_interval is None
+                else attack_interval
+            ),
+            kind=kind,
         )
         self._next_tower_id += 1
         self.towers.append(tower)
         self.action_history.push(("tower", tower))
         return tower
+
+    def register_shot(self, tower, enemy):
+        """Registra un disparo para que la vista lo anime. O(1).
+
+        El danio se aplica una sola vez, en el momento del ataque
+        (tower_attack); el disparo registrado aqui es solo un evento
+        visual: la vista dibuja el proyectil y el impacto sin volver
+        a tocar la vida del enemigo.
+        """
+        shot = {"kind": tower.kind, "tower": tower, "enemy": enemy}
+        self.shots.append(shot)
+        return shot
 
     def can_place_tower_at(self, map_x, map_y, footprint, tiled_map):
         """Comprueba si se puede colocar una torre en (map_x, map_y).

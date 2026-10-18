@@ -1,0 +1,218 @@
+{
+  "torre_01": {
+    "source": "animaciones/main_tower_01/01",
+    "frames": 50,
+    "original_size": [
+      756,
+      466
+    ],
+    "crop_box_xyxy": [
+      100,
+      27,
+      265,
+      376
+    ],
+    "size": [
+      165,
+      349
+    ]
+  },
+  "torre_02": {
+    "source": "animaciones/main_tower_01/02",
+    "frames": 50,
+    "original_size": [
+      756,
+      466
+    ],
+    "crop_box_xyxy": [
+      295,
+      27,
+      460,
+      376
+    ],
+    "size": [
+      165,
+      349
+    ]
+  },
+  "torre_03": {
+    "source": "animaciones/main_tower_01/03",
+    "frames": 50,
+    "original_size": [
+      756,
+      466
+    ],
+    "crop_box_xyxy": [
+      495,
+      27,
+      660,
+      376
+    ],
+    "size": [
+      165,
+      349
+    ]
+  },
+  "torre_04": {
+    "source": "animaciones/main_tower_02/04",
+    "frames": 50,
+    "original_size": [
+      756,
+      466
+    ],
+    "crop_box_xyxy": [
+      106,
+      5,
+      271,
+      378
+    ],
+    "size": [
+      165,
+      373
+    ]
+  },
+  "torre_05": {
+    "source": "animaciones/main_tower_02/05",
+    "frames": 50,
+    "original_size": [
+      756,
+      466
+    ],
+    "crop_box_xyxy": [
+      308,
+      5,
+      473,
+      378
+    ],
+    "size": [
+      165,
+      373
+    ]
+  },
+  "torre_06": {
+    "source": "animaciones/main_tower_02/06",
+    "frames": 50,
+    "original_size": [
+      756,
+      466
+    ],
+    "crop_box_xyxy": [
+      508,
+      5,
+      673,
+      378
+    ],
+    "size": [
+      165,
+      373
+    ]
+  },
+  "torre_07": {
+    "source": "animaciones/main_tower_03/07",
+    "frames": 50,
+    "original_size": [
+      756,
+      466
+    ],
+    "crop_box_xyxy": [
+      102,
+      5,
+      264,
+      374
+    ],
+    "size": [
+      162,
+      369
+    ]
+  },
+  "torre_08": {
+    "source": "animaciones/main_tower_03/08",
+    "frames": 50,
+    "original_size": [
+      756,
+      466
+    ],
+    "crop_box_xyxy": [
+      295,
+      5,
+      457,
+      374
+    ],
+    "size": [
+      162,
+      369
+    ]
+  },
+  "torre_09": {
+    "source": "animaciones/main_tower_03/09",
+    "frames": 50,
+    "original_size": [
+      756,
+      466
+    ],
+    "crop_box_xyxy": [
+      493,
+      5,
+      656,
+      374
+    ],
+    "size": [
+      163,
+      369
+    ]
+  },
+  "torre_10": {
+    "source": "animaciones/main_tower_04/10",
+    "frames": 50,
+    "original_size": [
+      756,
+      466
+    ],
+    "crop_box_xyxy": [
+      101,
+      5,
+      267,
+      374
+    ],
+    "size": [
+      166,
+      369
+    ]
+  },
+  "torre_11": {
+    "source": "animaciones/main_tower_04/11",
+    "frames": 50,
+    "original_size": [
+      756,
+      466
+    ],
+    "crop_box_xyxy": [
+      308,
+      5,
+      468,
+      374
+    ],
+    "size": [
+      160,
+      369
+    ]
+  },
+  "torre_12": {
+    "source": "animaciones/main_tower_04/12",
+    "frames": 50,
+    "original_size": [
+      756,
+      466
+    ],
+    "crop_box_xyxy": [
+      509,
+      7,
+      669,
+      374
+    ],
+    "size": [
+      160,
+      367
+    ]
+  }
+}
