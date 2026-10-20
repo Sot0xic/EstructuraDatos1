@@ -50,11 +50,22 @@ class TestManualTower(unittest.TestCase):
         self.model.pending_enemies.clear()
         self.model.active_enemies.clear()
         self.model.action_history.clear()
+        self.model.undo_stack.clear()
+        self.model.redo_stack.clear()
         self.model.towers.clear()
+        # La colocacion a traves de la ventana cobra el precio de la
+        # torre (economia); se repone el saldo para que cada prueba
+        # empiece igual que las demas reinicios de estado.
+        self.model.reset_economy()
         self.model._next_enemy_id = 1
         self.model._next_tower_id = 1
         self.controller._spawn_timer = 0.0
         self.window._pending_click = None
+        # La partida ya no arranca con una torre seleccionada
+        # (torreta.md): estas pruebas arman la colocacion como si el
+        # jugador hubiera elegido la torre en la tienda.
+        self.window.selected_kind = "basica"
+        self.window.placing = True
 
     # ------------------------------------------------------------------
     # Helpers

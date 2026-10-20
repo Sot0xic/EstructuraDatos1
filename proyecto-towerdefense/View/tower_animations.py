@@ -21,10 +21,11 @@ se dirige al enemigo real. Recortada asi, la animacion muestra el
 lanzamiento y el proyectil del juego continua el vuelo sin que se
 vean dos proyectiles a la vez.
 
-Solo las tres primeras variantes estan cables a los tipos actuales
-del juego (KIND_VARIANTS, teclas 1/2/3); las otras nueve quedan
-registradas en TOWER_VARIANTS como recursos listos para la futura
-tienda, sin leerse del disco hasta que se pidan (carga perezosa).
+Las 12 variantes estan cables a los tipos del modelo
+(KIND_VARIANTS, datos.md): las tres primeras a los tipos originales
+(basica, fuego, pesada; teclas 1/2/3) y torre_04..torre_12 a los
+nueve tipos adicionales de la tienda, cuyo kind coincide con su
+variante. Se cargan del disco de forma perezosa al pedirlas.
 
 La logica de combate no cambia: estas imagenes son puramente
 visuales, igual que los proyectiles y los impactos de la Semana 3.
@@ -50,12 +51,22 @@ LAUNCH_END = 15
 FRAME_TIME = 0.04
 
 # Variantes cables a los tipos del modelo (Model.game_model.TOWER_KINDS)
-# en el orden de las teclas 1, 2 y 3. Las nueve restantes solo existen
-# en TOWER_VARIANTS a la espera de la tienda.
+# en el orden del catalogo (datos.md). Las tres primeras son los tipos
+# originales (teclas 1/2/3); torre_04..torre_12 usan kind equivalente
+# a su variante. Las 12 cargan de forma perezosa al pedirlas.
 KIND_VARIANTS = {
     "basica": "torre_01",
     "fuego": "torre_02",
     "pesada": "torre_03",
+    "torre_04": "torre_04",
+    "torre_05": "torre_05",
+    "torre_06": "torre_06",
+    "torre_07": "torre_07",
+    "torre_08": "torre_08",
+    "torre_09": "torre_09",
+    "torre_10": "torre_10",
+    "torre_11": "torre_11",
+    "torre_12": "torre_12",
 }
 
 

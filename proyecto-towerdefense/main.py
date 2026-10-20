@@ -1,14 +1,18 @@
 """
 Punto de entrada del Tower Defense (Semanas 2 y 3).
 
-Abre la ventana de Pygame, carga el mapa de Tiled, crea el
-controlador, una oleada inicial con torres y ejecuta el ciclo
-del juego:
+    Abre la ventana de Pygame, carga el mapa de Tiled, crea el
+    controlador, una oleada inicial con torres y ejecuta el ciclo
+    del juego:
 
-    eventos -> actualizacion del modelo -> dibujo de la vista
+        eventos -> actualizacion del modelo -> dibujo de la vista
 
-La demostracion de las estructuras de datos de la Semana 1 se
-conserva en demo_estructuras.py.
+    Mientras la tienda emergente o el menu de pausa esten abiertos
+    (window.paused) se omite la actualizacion del modelo: la
+    simulacion queda en pausa hasta que el jugador los cierre.
+
+    La demostracion de las estructuras de datos de la Semana 1 se
+    conserva en demo_estructuras.py.
 
 Ejecutar desde la raiz del proyecto:
 
@@ -58,7 +62,8 @@ def main():
     while running:
         dt = window.tick()
         running = window.process_events()
-        controller.update(dt)
+        if not window.paused:
+            controller.update(dt)
         window.draw()
 
     window.close()

@@ -1,10 +1,10 @@
 """
-Pruebas de los tres tipos de torre, sus sprites y proyectiles
-(Semana 3 - pack stone-tower-game-assets).
+Pruebas de los tipos de torre, sus sprites y proyectiles
+(Semana 3 - pack stone-tower-game-assets; balance de datos.md).
 
 Comprueba:
 
-    - el registro TOWER_KINDS (basica, fuego, pesada) y sus roles
+    - el registro TOWER_KINDS (los 12 tipos del catalogo) y sus roles
     - la creacion de torres tomando nombre/danio/cadencia del tipo
     - la seleccion de tipo con las teclas 1/2/3 y la colocacion
     - que los sprites de cada tipo existen y se componen
@@ -44,8 +44,11 @@ MAP_PATH = os.path.join("assets", "mapas", "mapa_principal.tmx")
 class TestTowerKinds(unittest.TestCase):
     """Pruebas del registro de tipos y de creacion de torres."""
 
-    def test_registry_has_the_three_kinds(self):
-        self.assertEqual(set(TOWER_KINDS), {"basica", "fuego", "pesada"})
+    def test_registry_has_the_twelve_kinds(self):
+        esperado = {"basica", "fuego", "pesada"} | {
+            f"torre_{i:02d}" for i in range(4, 13)
+        }
+        self.assertEqual(set(TOWER_KINDS), esperado)
 
     def test_kind_stats_match_their_roles(self):
         basica = TOWER_KINDS["basica"]
@@ -57,11 +60,12 @@ class TestTowerKinds(unittest.TestCase):
             self.assertGreater(spec["attack_interval"], 0.0)
             self.assertTrue(spec["name"])
 
-        # fuego ataca mas rapido; pesada ataca mas lento y mas fuerte
+        # Balance datos.md: fuego ataca mas rapido que basica; pesada
+        # ataca mas lento y es la mas potente de las tres.
         self.assertLess(fuego["attack_interval"], basica["attack_interval"])
         self.assertGreater(pesada["attack_interval"], basica["attack_interval"])
         self.assertGreater(pesada["damage"], basica["damage"])
-        self.assertGreater(basica["damage"], fuego["damage"])
+        self.assertGreater(fuego["damage"], basica["damage"])
 
     def test_create_tower_uses_kind_stats(self):
         model = GameModel()
@@ -109,6 +113,13 @@ class TestTowerKinds(unittest.TestCase):
 
 class TestTowerAssets(unittest.TestCase):
     """Pruebas de los sprites del pack stone-tower-game-assets."""
+
+    @classmethod
+    def setUpClass(cls):
+        # convert_alpha necesita un modo de video activo y esta clase
+        # no crea la ventana del juego: fija uno pequeno para que el
+        # archivo de pruebas funcione tambien de forma aislada.
+        pygame.display.set_mode((1, 1))
 
     def test_asset_files_exist(self):
         for kind, spec in TOWER_ASSETS.items():
@@ -165,9 +176,9 @@ class TestTowerAssets(unittest.TestCase):
             "torre_07": ("29.png", None),
             "torre_08": ("29.png", None),
             "torre_09": ("29.png", None),
-            "torre_10": ("50.png", "spin"),
-            "torre_11": ("50.png", "spin"),
-            "torre_12": ("50.png", "spin"),
+            "torre_10": ("45.png", "spin"),
+            "torre_11": ("45.png", "spin"),
+            "torre_12": ("45.png", "spin"),
         }
 
         self.assertEqual(set(VARIANT_PROJECTILES), set(esperado))
@@ -267,7 +278,10 @@ class TestTowerPlacementAndProjectiles(unittest.TestCase):
         self.window._pending_click = None
         self.window.projectiles.clear()
         self.window.impacts.clear()
+        # La partida no arranca con seleccion (torreta.md): se arma
+        # aqui para probar la colocacion del tipo elegido.
         self.window.selected_kind = "basica"
+        self.window.placing = True
         self.window._dt = 0.0
         self.window._anim_time = 0.0
         self.window._fire_timers.clear()

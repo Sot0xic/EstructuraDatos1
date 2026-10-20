@@ -63,14 +63,11 @@ class TestTowerVariantCatalog(unittest.TestCase):
         for spec in TOWER_VARIANTS.values():
             self.assertEqual(spec["launch_end"], LAUNCH_END)
 
-    def test_only_the_first_three_variants_are_wired_to_kinds(self):
-        self.assertEqual(
-            KIND_VARIANTS,
-            {"basica": "torre_01", "fuego": "torre_02", "pesada": "torre_03"},
-        )
-        cables = set(KIND_VARIANTS.values())
-        sobrantes = set(TOWER_VARIANTS) - cables
-        self.assertEqual(len(sobrantes), 9, "Solo deben quedar 9 variantes libres")
+    def test_all_twelve_variants_are_wired_to_kinds(self):
+        esperado = {"basica": "torre_01", "fuego": "torre_02", "pesada": "torre_03"}
+        esperado.update({f"torre_{i:02d}": f"torre_{i:02d}" for i in range(4, 13)})
+        self.assertEqual(KIND_VARIANTS, esperado)
+        self.assertEqual(set(KIND_VARIANTS.values()), set(TOWER_VARIANTS))
 
 
 class TestTowerAnimationsLoading(unittest.TestCase):
@@ -82,10 +79,10 @@ class TestTowerAnimationsLoading(unittest.TestCase):
     def test_has_is_true_only_for_wired_kinds(self):
         for kind in KIND_VARIANTS:
             self.assertTrue(self.animations.has(kind), kind)
+        self.assertTrue(self.animations.has("torre_12"))
         self.assertFalse(self.animations.has("inventada"))
-        self.assertFalse(self.animations.has("torre_04"))
 
-    def test_idle_and_attack_frames_load_for_the_three_kinds(self):
+    def test_idle_and_attack_frames_load_for_the_twelve_kinds(self):
         for kind in KIND_VARIANTS:
             idle = self.animations.idle(kind)
             self.assertGreater(idle.get_width(), 0, kind)
