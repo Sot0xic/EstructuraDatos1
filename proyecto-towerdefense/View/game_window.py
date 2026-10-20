@@ -14,14 +14,17 @@ Dibuja el estado del modelo sobre el mapa de Tiled:
       flotante y rebote de disparo)
     - proyectiles en vuelo desde la torre hasta el enemigo objetivo
       (basica, fuego o roca) y efectos de impacto animados por frames
-    - enemigos con barra de vida
+    - enemigos con sprites animados de assets/enemigos (walk mientras
+      anda, hurt al recibir dano y die al morir, cargados de forma
+      perezosa por View.enemy_animations) y barra de vida
     - torres y enemigos ordenados con Y-sorting: cada entidad se
       ordena por su punto de contacto con el suelo (base de la torre,
       pies del enemigo) y la situada mas abajo en pantalla se dibuja
       encima, de modo que un enemigo que pasa delante de una torre la
       tapa y uno que pasa detras queda cubierto por ella
     - Decoraciones_superiores por encima de enemigos y torres
-    - resumen del estado (HUD)
+    - contador de estrellas (la barra de resumen/atajos superior esta
+      desactivada, fix.md)
 
 Permite colocar torres haciendo click izquierdo en el mapa, validando
 que la posicion no este en zona bloqueada, fuera del mapa ni encima de
@@ -74,6 +77,7 @@ import os
 import pygame
 
 from Model.game_model import TOWER_KINDS, TOWER_RANGE
+from View.enemy_animations import EnemyAnimations
 from View.pause_menu import PauseMenu
 from View.shop_panel import ShopPanel
 from View.sprite_font import SpriteFont
@@ -91,7 +95,11 @@ class GameWindow:
     WIDTH = 1280
     HEIGHT = 720
 
+    # Circulo de reserva si faltan los sprites del enemigo.
     ENEMY_RADIUS = 8
+    # Distancia de mirada sobre el camino (px de mapa) para saber
+    # hacia donde avanza un enemigo y voltear su sprite (enemigos.md).
+    FACING_LOOK_AHEAD = 8.0
     TOWER_FOOTPRINT = 40.0
     # Alcance y huella en pixeles del mapa de Tiled (misma unidad que
     # Enemy.progress y Tower.position); el dibujo aplica el escalado.
@@ -196,6 +204,10 @@ class GameWindow:
 
         self.assets = TowerAssets(self.scale)
         self.animations = TowerAnimations(self.scale)
+        # Animaciones de los enemigos (enemigos.md): mismos PNG
+        # pre-escalados por la escala de la ventana que las torres,
+        # con la carpeta cables a cada nombre de oleada.
+        self.enemy_animations = EnemyAnimations(self.scale)
         self.sprite_font = SpriteFont()
         # Sin torre seleccionada al iniciar la partida (torreta.md): no
         # hay previsualizacion ni colocacion hasta que el jugador elija
@@ -241,6 +253,12 @@ class GameWindow:
         self.impacts = []       # impactos en animacion (pos. en mapa)
         self._anim_time = 0.0   # reloj acumulado para flote de munición
         self._fire_timers = {}  # tid -> segundos restantes de anim. de disparo
+        # Estados visuales de los enemigos (enemigos.md): uno por
+        # enemigo activo, la lista de muertes en curso y el conjunto
+        # de ids ya pasados a die (la animacion se inicia una sola vez).
+        self._enemy_visuals = {}
+        self._dying_enemies = []
+        self._dying_ids = set()
 
         self.hud_background = self._build_hud_background()
         self._pending_click = None
@@ -788,7 +806,10 @@ class GameWindow:
             )
             self.screen.blit(scaled_upper, (self.offset_x, self.offset_y))
 
-        self._draw_hud()
+        # Barra superior de depuracion desactivada (fix.md): la parte
+        # alta del mapa queda limpia; el contador de estrellas (abajo)
+        # y el resto de la interfaz siguen visibles. El metodo
+        # _draw_hud se conserva sin llamar para no tocar su logica.
         self._draw_coin_counter()
         self._draw_action_buttons()
 
@@ -879,11 +900,11 @@ class GameWindow:
     def _enemy_sort_y(self, enemy):
         """Y de pantalla de los pies del enemigo, para ordenar. O(1).
 
-        El enemigo se dibuja como un circulo cuyo borde inferior es su
-        punto de contacto con el suelo; ordenar por el centro
-        descolocaria su profundidad respecto a la base de las torres.
+        El sprite esta anclado con sus pies sobre el punto logico del
+        camino; ordenar por ese mismo punto mantiene la profundidad
+        coherente con la base de las torres y con los enemigos muriendo.
         """
-        return self._point_at(enemy.progress)[1] + self.ENEMY_RADIUS
+        return self._point_at(enemy.progress)[1]
 
     def _draw_entities_y_sorted(self):
         """Dibuja torres y enemigos ordenados por su Y de contacto. O((t+n)log(t+n)).
@@ -893,7 +914,8 @@ class GameWindow:
         abajo, visualmente delante). Asi un enemigo que pasa por
         delante de una torre alta la tapa y uno que pasa detras queda
         cubierto por la torre. Si dos entidades coinciden en Y gana el
-        enemigo, como en el orden anterior.
+        enemigo, como en el orden anterior. Los enemigos muriendo
+        entran tambien con su ultimo punto de progreso, congelado.
         """
         entries = []
         for tower in self.model.towers:
@@ -903,6 +925,11 @@ class GameWindow:
         for enemy in self.model.active_enemies:
             entries.append(
                 (self._enemy_sort_y(enemy), 1, self._draw_enemy, enemy)
+            )
+        for state in self._dying_enemies:
+            entries.append(
+                (self._enemy_sort_y(state["enemy"]), 1,
+                 self._draw_dying_enemy, state)
             )
         entries.sort(key=lambda entry: (entry[0], entry[1]))
         for _, _, draw, entity in entries:
@@ -1028,17 +1055,108 @@ class GameWindow:
                 "angle": 0.0,
                 "age": 0.0,
             })
+            # Si con este disparo el enemigo murio, su representacion
+            # pasa a la animacion de muerte (una sola vez por id).
+            if shot["enemy"].is_defeated:
+                self._start_death(shot["enemy"])
         self.model.shots.clear()
 
     def _target_point(self, enemy):
         """Posicion en pixeles de mapa del enemigo (por su progreso). O(p)."""
         return self._point_map_at(enemy.progress)
 
-    def _advance_effects(self):
-        """Mueve proyectiles y avanza los frames de impacto. O(p + i).
+    # ------------------------------------------------------------------
+    # Estados visuales de los enemigos (enemigos.md)
+    # ------------------------------------------------------------------
+    def _new_enemy_visual(self, enemy, state="walk"):
+        """Estado visual inicial de un enemigo activo. O(1)."""
+        return {
+            "enemy": enemy,
+            "type": self.enemy_animations.type_for(enemy.name),
+            "state": state,
+            "walk_time": 0.0,
+            "state_time": 0.0,
+            "facing": 1,
+            "last_hp": enemy.hp,
+        }
 
-        Con la tienda abierta el tiempo efectivo es cero: los
-        proyectiles y los impactos se congelan igual que la simulacion.
+    def _update_facing(self, state, enemy):
+        """Voltea el sprite segun la direccion real sobre el camino. O(p).
+
+        Compara el punto actual con otro un poco mas adelante en el
+        recorrido: si el enemigo avanza hacia la izquierda su sprite se
+        dibuja volteado (los PNG estan dibujados mirando a la
+        derecha). Si la direccion no cambia se conserva la anterior.
+        """
+        x0, _ = self._point_map_at(enemy.progress)
+        x1, _ = self._point_map_at(enemy.progress + self.FACING_LOOK_AHEAD)
+        if x1 < x0:
+            state["facing"] = -1
+        elif x1 > x0:
+            state["facing"] = 1
+
+    def _start_death(self, enemy, state=None):
+        """Pasa la representacion de un enemigo a la animacion die. O(1).
+
+        El modelo lo retira de active_enemies y paga la recompensa al
+        morir; aqui su estado visual pasa a la lista de muertes en
+        curso una sola vez por id, para poder reproducir die aunque el
+        enemigo no llegara a dibujarse antes.
+        """
+        if enemy.enemy_id in self._dying_ids:
+            return
+        if state is None:
+            state = self._enemy_visuals.pop(enemy.enemy_id, None)
+        if state is None:
+            state = self._new_enemy_visual(enemy)
+        state["state"] = "die"
+        state["state_time"] = 0.0
+        self._dying_ids.add(enemy.enemy_id)
+        self._dying_enemies.append(state)
+
+    def _sync_enemy_visuals(self, dt):
+        """Sincroniza los visuales con el modelo y avanza sus relojes. O(n+d).
+
+        Un enemigo que sale de active_enemies con vida (escape) borra
+        su estado visual; si sale muerto pasa a la lista de muertes.
+        walk_time avanza siempre (sigue andando aunque este en hurt),
+        hurt vuelve a walk al agotarse y die se elimina al terminar.
+        Con dt=0 (tienda o pausa abiertas) ningun reloj avanza.
+        """
+        actives = {enemy.enemy_id for enemy in self.model.active_enemies}
+        for enemy_id in list(self._enemy_visuals):
+            if enemy_id in actives:
+                continue
+            state = self._enemy_visuals.pop(enemy_id)
+            if state["enemy"].is_defeated:
+                self._start_death(state["enemy"], state=state)
+        if dt <= 0.0:
+            return
+        for state in self._enemy_visuals.values():
+            state["walk_time"] += dt
+            state["state_time"] += dt
+            if state["state"] != "hurt":
+                continue
+            duration = self.enemy_animations.duration(state["type"], "hurt")
+            if state["state_time"] >= duration:
+                state["state"] = "walk"
+                state["state_time"] = 0.0
+        still_dying = []
+        for state in self._dying_enemies:
+            state["state_time"] += dt
+            duration = self.enemy_animations.duration(state["type"], "die")
+            if state["state_time"] >= duration:
+                self._dying_ids.discard(state["enemy"].enemy_id)
+            else:
+                still_dying.append(state)
+        self._dying_enemies = still_dying
+
+    def _advance_effects(self):
+        """Mueve proyectiles, impactos y animaciones de enemigos. O(n+p+i).
+
+        Con la tienda o el menu de pausa abiertos el tiempo efectivo
+        es cero: los proyectiles, los impactos y los estados visuales
+        de los enemigos se congelan igual que la simulacion.
         """
         dt = 0.0 if self.paused else self._dt
         self._anim_time += max(0.0, dt)
@@ -1047,6 +1165,10 @@ class GameWindow:
                 self._fire_timers[tower_id] -= dt
                 if self._fire_timers[tower_id] <= 0.0:
                     del self._fire_timers[tower_id]
+        # Visuales de los enemigos: sincroniza muertes y avanza sus
+        # animaciones con el MISMO dt (0 con la tienda o la pausa
+        # abiertas, de modo que quedan congelados).
+        self._sync_enemy_visuals(dt)
         if dt <= 0.0 and not self.impacts:
             return
 
@@ -1149,21 +1271,81 @@ class GameWindow:
             self._blit_centered(image, impact["x"], impact["y"])
 
     def _draw_enemies(self):
-        """Dibuja los enemigos activos con barra de vida. O(n)."""
+        """Dibuja los enemigos activos con sprite animado y barra. O(n)."""
         for enemy in self.model.active_enemies:
             self._draw_enemy(enemy)
 
     def _draw_enemy(self, enemy):
-        """Dibuja un enemigo y su barra de vida en su posicion. O(1)."""
+        """Dibuja un enemigo activo: su animacion actual y su vida. O(f).
+
+        Crea su estado visual en la primera aparicion y detecta aqui
+        el dano (vida menor que en el frame anterior) para pasar a la
+        animacion hurt sin reiniciarla si ya estaba en ella; hurt y
+        walk no detienen su movimiento porque la logica de avance no
+        cambia (solo cambia el fotograma que se pega).
+        """
+        state = self._enemy_visuals.get(enemy.enemy_id)
+        if state is None:
+            state = self._new_enemy_visual(enemy)
+            self._enemy_visuals[enemy.enemy_id] = state
+        if enemy.hp < state["last_hp"] and state["state"] != "hurt":
+            state["state"] = "hurt"
+            state["state_time"] = 0.0
+        state["last_hp"] = enemy.hp
+        self._update_facing(state, enemy)
+
         x, y = self._point_at(enemy.progress)
         x, y = int(x), int(y)
-        center = (x, y)
+        self._blit_enemy_sprite(state, x, y)
+        self._draw_enemy_health_bar(enemy, x, y)
 
-        pygame.draw.circle(self.screen, self.ENEMY_COLOR, center, self.ENEMY_RADIUS)
-        pygame.draw.circle(
-            self.screen, self.ENEMY_BORDER, center, self.ENEMY_RADIUS, 2
+    def _draw_dying_enemy(self, state):
+        """Dibuja un enemigo durante su animacion de muerte. O(f).
+
+        Su barra de vida no se dibuja: el modelo ya lo retiro de los
+        activos al llegar a cero puntos de vida.
+        """
+        self._update_facing(state, state["enemy"])
+        x, y = self._point_at(state["enemy"].progress)
+        self._blit_enemy_sprite(state, int(x), int(y))
+
+    def _blit_enemy_sprite(self, state, x, y):
+        """Pega el fotograma del estado con los pies en (x, y). O(1).
+
+        walk se reproduce en bucle con su reloj propio (walk_time);
+        hurt y die una sola vez con state_time (enemigos.md §3-§5).
+        El ancla la resuelve View.enemy_animations (pies sobre el
+        punto, volteo horizontal segun state["facing"]). Si el tipo no
+        tiene recursos disponibles se dibuja el circulo original.
+        """
+        anim = state["state"]
+        loop = anim == "walk"
+        clock = state["walk_time"] if anim == "walk" else state["state_time"]
+        flip = state["facing"] < 0
+        frame = self.enemy_animations.frame(
+            state["type"], anim, clock, flip=flip, loop=loop
         )
+        if frame is None:
+            center = (x, y)
+            pygame.draw.circle(
+                self.screen, self.ENEMY_COLOR, center, self.ENEMY_RADIUS
+            )
+            pygame.draw.circle(
+                self.screen, self.ENEMY_BORDER, center, self.ENEMY_RADIUS, 2
+            )
+            return
+        anchor_x, anchor_y = self.enemy_animations.anchor(
+            state["type"], flip=flip
+        )
+        self.screen.blit(frame, (x - int(anchor_x), y - int(anchor_y)))
 
+    def _draw_enemy_health_bar(self, enemy, x, y):
+        """Barra de vida en la posicion logica del enemigo. O(1).
+
+        Se conserva en el mismo sitio que con la representacion
+        anterior (enemigos.md §7): 22 px de ancho centrados en el
+        punto del camino y 4 px de alto con el borde en y-20.
+        """
         bar_width = 22
         ratio = 0.0
         if enemy.max_hp > 0:
@@ -1176,7 +1358,13 @@ class GameWindow:
             pygame.draw.rect(self.screen, self.HP_FILL, fill)
 
     def _draw_hud(self):
-        """Dibuja el resumen del estado y la ayuda de controles."""
+        """Dibuja el resumen del estado y la ayuda de controles.
+
+        Su renderizado quedo desactivado en fix.md (la parte superior
+        de la pantalla debe permanecer limpia); el metodo se conserva
+        tal cual por si se necesita reactivarlo, sin tocar contadores
+        ni estructuras internas.
+        """
         self.screen.blit(self.hud_background, (6, 6))
         state_text = (
             f"Pendientes: {self.model.pending_count}   "
