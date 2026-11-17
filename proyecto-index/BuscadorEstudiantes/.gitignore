@@ -1,0 +1,16 @@
+
+# Archivos temporales de Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Entornos virtuales
+.venv/
+venv/
+env/
+
+# Archivos de configuración sensibles
+.env
+
+# Configuración local de editores
+.vscode/
